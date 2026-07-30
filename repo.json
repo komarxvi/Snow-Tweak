@@ -1,1 +1,14 @@
-
+{
+  "name": "Snow-tweak",
+  "identifier": "https://github.com/komarxvi/Snow-Tweak",
+  "tweaks": [
+    {
+      "name": "Falling Snow",
+      "identifier": "https://github.com/komarxvi/Snow-Tweak",
+      "version": "1.0.0",
+      "author": "komarxvi",
+      "description": "Brings a smooth falling snow animation to your iOS screen.",
+      "downloadUrl": "https://github.com/komarxvi/Snow-Tweak/raw/refs/heads/main/snow.js"
+    }
+  ]
+}
