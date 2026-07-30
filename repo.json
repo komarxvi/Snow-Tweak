@@ -1,10 +1,10 @@
 {
   "name": "Snow-tweak",
-  "identifier": "https://github.com/komarxvi/Snow-Tweak",
+  "identifier": "com.komarxvi.snowrepo",
   "tweaks": [
     {
       "name": "Falling Snow",
-      "identifier": "https://github.com/komarxvi/Snow-Tweak",
+      "identifier": "com.komarxvi.snowtweak",
       "version": "1.0.0",
       "author": "komarxvi",
       "description": "Brings a smooth falling snow animation to your iOS screen.",
