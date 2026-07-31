@@ -1,0 +1,57 @@
+# Cyanide JavaScript Tweak Documentation
+
+JavaScript engine contributed by @MinePlayer16.
+
+---
+
+## Writing a Tweak
+
+A tweak is a plain .js file that runs inside JavaScriptCore. 64-bit pointers are hex strings. Wrap code in an IIFE:
+
+```javascript
+(() => {
+  log("Hello from my tweak!");
+  var app = r_msg2(r_class("UIApplication"), "sharedApplication");
+  var win = r_msg2(app, "keyWindow");
+})();
+```
+
+## Parameter Declaration
+
+```
+// @param: type | varName | Label | default | range
+```
+
+| Type | Example |
+|------|--------|
+| `switch` | `// @param: switch \| enabled \| Enable \| true` |
+| `text` | `// @param: text \| label \| Text \| Hello` |
+| `color` | `// @param: color \| tint \| Color \| #00FFCC` |
+| `slider` | `// @param: slider \| radius \| Blur \| 5.0 \| 0.0-10.0` |
+
+## RemoteCall API
+
+| Function | Description |
+|----------|-------------|
+| `log(msg)` | Print to log |
+| `r_class(name)` | ObjC class pointer |
+| `r_sel(name)` | String → SEL |
+| `r_nsstr(str)` | Allocate NSString (release when done) |
+| `r_msg2(t,s,a1..a4)` | Send ObjC message |
+| `r_msg2_main(t,s,a1..a4)` | Send on main thread |
+| `r_responds(t,s)` | respondsToSelector check |
+
+## QuickLoader Prefs
+
+```javascript
+r_pref_num("key")  // float
+r_pref_bool("key") // bool
+r_pref_str("key")  // string
+```
+
+## Timers
+
+```javascript
+setInterval(fn, ms) / clearInterval(id)
+setTimeout(fn, ms) / clearTimeout(id)
+```
