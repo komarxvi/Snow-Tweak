@@ -10,15 +10,21 @@
   var fallSpeed = r_pref_num("fallSpeed")   || 1.0;
   var flakeSize = r_pref_num("flakeSize")   || 3.0;
   var opacity   = r_pref_num("snowOpacity") || 0.85;
+  log("[snowfall] prefs d=" + density + " s=" + fallSpeed + " sz=" + flakeSize + " o=" + opacity);
+
+  // Экран НЕ читаем обратно из ObjC: чтение double-возвращающих методов
+  // (valueForKeyPath -> doubleValue) через этот мост даёт мусор (в
+  // прошлом логе screen пришёл как "0x1x0x1"), а потом это ещё и
+  // ломает арифметику в JS ("0x1" + size = склейка строк, а не сумма).
+  // Поэтому просто берём фиксированные границы с запасом под любой iPhone.
+  var SCREEN_W = 430;
+  var FALL_Y   = 1100;
 
   var app = r_msg2(r_class("UIApplication"), "sharedApplication");
   var win = r_msg2(app, "keyWindow");
   if (!win || win === "0x0") { log("[snowfall] no keyWindow, abort"); return; }
   var rootLayer = r_msg2(win, "layer");
 
-  // Мост не умеет передавать сырые структуры (CGPoint/CGSize), поэтому
-  // геометрию выставляем по одному числовому полю через KVC key-path:
-  // CALayer официально поддерживает "position.x/y", "bounds.size.width/height".
   var kPosX = r_nsstr("position.x");
   var kPosY = r_nsstr("position.y");
   var kBW   = r_nsstr("bounds.size.width");
@@ -29,22 +35,15 @@
     var num = r_msg2(r_class("NSNumber"), "numberWithDouble:", value);
     r_msg2_main(obj, "setValue:forKeyPath:", num, keyPathStr);
   }
-  function getNum(obj, keyPathStr) {
-    var num = r_msg2(obj, "valueForKeyPath:", keyPathStr);
-    return r_msg2(num, "doubleValue");
-  }
-
-  var screenW = getNum(rootLayer, kBW);
-  var screenH = getNum(rootLayer, kBH);
-  log("[snowfall] screen " + screenW + "x" + screenH);
-  if (!screenW || !screenH) { log("[snowfall] bad screen size, abort"); return; }
 
   var cgWhite = r_msg2(r_msg2(r_class("UIColor"), "whiteColor"), "CGColor");
 
   var count = Math.max(10, Math.round(density));
   for (var i = 0; i < count; i++) {
+    if (i % 10 === 0) log("[snowfall] flake " + i + "/" + count);
+
     var size = flakeSize * (0.5 + Math.random());
-    var x    = Math.random() * screenW;
+    var x    = Math.random() * SCREEN_W;
 
     var flake = r_msg2(r_class("CALayer"), "layer");
 
@@ -59,15 +58,11 @@
 
     r_msg2_main(rootLayer, "addSublayer:", flake);
 
-    // Падение навсегда — целиком на стороне Core Animation,
-    // JS в этом больше не участвует.
-    var dur  = (6 + Math.random() * 6) / fallSpeed;
-    var from = r_msg2(r_class("NSNumber"), "numberWithDouble:", -size);
-    var to   = r_msg2(r_class("NSNumber"), "numberWithDouble:", screenH + size);
+    var dur = (6 + Math.random() * 6) / fallSpeed;
 
     var anim = r_msg2(r_class("CABasicAnimation"), "animationWithKeyPath:", kPosY);
-    r_msg2_main(anim, "setFromValue:", from);
-    r_msg2_main(anim, "setToValue:", to);
+    r_msg2_main(anim, "setFromValue:", r_msg2(r_class("NSNumber"), "numberWithDouble:", -size));
+    r_msg2_main(anim, "setToValue:",   r_msg2(r_class("NSNumber"), "numberWithDouble:", FALL_Y));
     r_msg2_main(anim, "setDuration:", dur);
     r_msg2_main(anim, "setRepeatCount:", 100000);
     r_msg2_main(anim, "setTimeOffset:", Math.random() * dur);
@@ -75,5 +70,5 @@
     r_msg2_main(flake, "addAnimation:forKey:", anim, kFall);
   }
 
-  log("[snowfall] spawned " + count + " flakes");
+  log("[snowfall] spawned " + count + " flakes, done");
 })();
