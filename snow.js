@@ -1,74 +1,91 @@
-// @param: slider | density     | Snowflakes | 70   | 20-200
-// @param: slider | fallSpeed   | Fall Speed | 1.0  | 0.3-3.0
-// @param: slider | flakeSize   | Flake Size | 3.0  | 1.0-8.0
-// @param: slider | snowOpacity | Opacity    | 0.85 | 0.1-1.0
+// @param: slider | flakes | Snowflakes | 15 | 5-40
 
 (() => {
-  log("[snowfall] start");
+  log("[snow] 1 start");
 
-  var density   = r_pref_num("density")     || 70;
-  var fallSpeed = r_pref_num("fallSpeed")   || 1.0;
-  var flakeSize = r_pref_num("flakeSize")   || 3.0;
-  var opacity   = r_pref_num("snowOpacity") || 0.85;
-  log("[snowfall] prefs d=" + density + " s=" + fallSpeed + " sz=" + flakeSize + " o=" + opacity);
+  var total = r_pref_num("flakes") || 15;
+  total = Math.floor(total);
 
-  // Экран НЕ читаем обратно из ObjC: чтение double-возвращающих методов
-  // (valueForKeyPath -> doubleValue) через этот мост даёт мусор (в
-  // прошлом логе screen пришёл как "0x1x0x1"), а потом это ещё и
-  // ломает арифметику в JS ("0x1" + size = склейка строк, а не сумма).
-  // Поэтому просто берём фиксированные границы с запасом под любой iPhone.
-  var SCREEN_W = 430;
-  var FALL_Y   = 1100;
+  // Кешируем классы один раз — объекты классов никогда не деаллоцируются
+  var clNum  = r_class("NSNumber");
+  var clLay  = r_class("CALayer");
+  var clAnim = r_class("CABasicAnimation");
+  var clApp  = r_class("UIApplication");
+  var clCol  = r_class("UIColor");
+  log("[snow] 2 classes ok");
 
-  var app = r_msg2(r_class("UIApplication"), "sharedApplication");
-  var win = r_msg2(app, "keyWindow");
-  if (!win || win === "0x0") { log("[snowfall] no keyWindow, abort"); return; }
-  var rootLayer = r_msg2(win, "layer");
+  // Получаем корневой CALayer SpringBoard
+  var app  = r_msg2(clApp, "sharedApplication");
+  var win  = r_msg2(app,   "keyWindow");
+  var root = r_msg2(win,   "layer");
+  log("[snow] 3 root=" + root);
 
-  var kPosX = r_nsstr("position.x");
-  var kPosY = r_nsstr("position.y");
-  var kBW   = r_nsstr("bounds.size.width");
-  var kBH   = r_nsstr("bounds.size.height");
-  var kFall = r_nsstr("fall");
+  // Белый CGColor — НЕ вкладываем вызовы, всегда отдельные переменные
+  var uiWhite = r_msg2(clCol, "whiteColor");
+  var cgWhite = r_msg2(uiWhite, "CGColor");
+  log("[snow] 4 cgWhite=" + cgWhite);
 
-  function setNum(obj, keyPathStr, value) {
-    var num = r_msg2(r_class("NSNumber"), "numberWithDouble:", value);
-    r_msg2_main(obj, "setValue:forKeyPath:", num, keyPathStr);
+  // NSString-ключи для KVC — один раз, живут в замыкании
+  var kBW = r_nsstr("bounds.size.width");
+  var kBH = r_nsstr("bounds.size.height");
+  var kPX = r_nsstr("position.x");
+  var kPY = r_nsstr("position.y");
+  var kAK = r_nsstr("snow");
+  log("[snow] 5 strings ok");
+
+  // Создаём снежинки по одной через setTimeout — каждый колбэк ~15 вызовов,
+  // скрипт возвращается мгновенно и не триггерит QuickLoader run-timeout.
+  for (var i = 0; i < total; i++) {
+    (function(idx) {
+      setTimeout(function() {
+        log("[snow] flake " + idx);
+
+        var sz  = 2 + Math.random() * 4;
+        var x   = Math.random() * 430;
+        var dur = 6 + Math.random() * 8;
+        var off = Math.random() * dur;
+        var op  = 0.7 + Math.random() * 0.3;
+
+        // Создаём слой
+        var fl = r_msg2(clLay, "layer");
+
+        // NSNumber для каждого числа — отдельно, без вложенности
+        var nSZ = r_msg2(clNum, "numberWithDouble:", sz);
+        var nX  = r_msg2(clNum, "numberWithDouble:", x);
+        var nYI = r_msg2(clNum, "numberWithDouble:", -sz);
+
+        // Задаём геометрию через KVC (мост не умеет передавать CGPoint/CGSize напрямую)
+        r_msg2_main(fl, "setValue:forKeyPath:", nSZ, kBW);
+        r_msg2_main(fl, "setValue:forKeyPath:", nSZ, kBH);
+        r_msg2_main(fl, "setValue:forKeyPath:", nX,  kPX);
+        r_msg2_main(fl, "setValue:forKeyPath:", nYI, kPY);
+
+        // Внешний вид — setCornerRadius:/setOpacity: принимают скаляры, работают напрямую
+        r_msg2_main(fl, "setCornerRadius:", sz / 2);
+        r_msg2_main(fl, "setOpacity:", op);
+        r_msg2_main(fl, "setBackgroundColor:", cgWhite);
+
+        // Добавляем слой в дерево
+        r_msg2_main(root, "addSublayer:", fl);
+
+        // Анимация падения — Core Animation крутит её сама, JS больше не нужен
+        var anim = r_msg2(clAnim, "animationWithKeyPath:", kPY);
+
+        var nFr = r_msg2(clNum, "numberWithDouble:", -sz);
+        var nTo = r_msg2(clNum, "numberWithDouble:", 1100);
+
+        r_msg2_main(anim, "setFromValue:", nFr);
+        r_msg2_main(anim, "setToValue:",   nTo);
+        r_msg2_main(anim, "setDuration:", dur);
+        r_msg2_main(anim, "setRepeatCount:", 9999);
+        r_msg2_main(anim, "setTimeOffset:", off);
+
+        r_msg2_main(fl, "addAnimation:forKey:", anim, kAK);
+
+        log("[snow] flake " + idx + " done");
+      }, idx * 100); // 100 мс между снежинками — минимальная нагрузка
+    })(i);
   }
 
-  var cgWhite = r_msg2(r_msg2(r_class("UIColor"), "whiteColor"), "CGColor");
-
-  var count = Math.max(10, Math.round(density));
-  for (var i = 0; i < count; i++) {
-    if (i % 10 === 0) log("[snowfall] flake " + i + "/" + count);
-
-    var size = flakeSize * (0.5 + Math.random());
-    var x    = Math.random() * SCREEN_W;
-
-    var flake = r_msg2(r_class("CALayer"), "layer");
-
-    setNum(flake, kBW, size);
-    setNum(flake, kBH, size);
-    setNum(flake, kPosX, x);
-    setNum(flake, kPosY, -size);
-
-    r_msg2_main(flake, "setBackgroundColor:", cgWhite);
-    r_msg2_main(flake, "setCornerRadius:", size / 2);
-    r_msg2_main(flake, "setOpacity:", opacity * (0.6 + Math.random() * 0.4));
-
-    r_msg2_main(rootLayer, "addSublayer:", flake);
-
-    var dur = (6 + Math.random() * 6) / fallSpeed;
-
-    var anim = r_msg2(r_class("CABasicAnimation"), "animationWithKeyPath:", kPosY);
-    r_msg2_main(anim, "setFromValue:", r_msg2(r_class("NSNumber"), "numberWithDouble:", -size));
-    r_msg2_main(anim, "setToValue:",   r_msg2(r_class("NSNumber"), "numberWithDouble:", FALL_Y));
-    r_msg2_main(anim, "setDuration:", dur);
-    r_msg2_main(anim, "setRepeatCount:", 100000);
-    r_msg2_main(anim, "setTimeOffset:", Math.random() * dur);
-
-    r_msg2_main(flake, "addAnimation:forKey:", anim, kFall);
-  }
-
-  log("[snowfall] spawned " + count + " flakes, done");
+  log("[snow] 6 timers armed, returning");
 })();
